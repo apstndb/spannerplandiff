@@ -30,7 +30,7 @@ $ spannerplandiff --error-on-diff --before=1 --after=2 --sql='SELECT SongName FR
 exit status 1
 $ echo $?
 1
-$ cat retult.txtar 
+$ cat result.txtar 
 -- 1.plan.yaml --
 plannodes:
 (ellipsis...)
