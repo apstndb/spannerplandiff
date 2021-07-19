@@ -1,4 +1,4 @@
-module spannerplandiff
+module github.com/apstndb/spannerplandiff
 
 go 1.16
 
