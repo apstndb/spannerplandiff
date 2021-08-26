@@ -9,8 +9,8 @@ Usage:
   spannerplandiff [OPTIONS]
 
 Application Options:
-      --before=            Before query optimizer version
-      --after=             After query optimizer version
+      --before=            Before query optimizer version (default: default_version)
+      --after=             After query optimizer version (default: latest_version)
   -p, --project=           (required) ID of the project. [$CLOUDSDK_CORE_PROJECT]
   -i, --instance=          (required) ID of the instance. [$CLOUDSDK_SPANNER_INSTANCE]
   -d, --database=          (required) ID of the database. [$DATABASE_ID]
