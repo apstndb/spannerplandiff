@@ -19,6 +19,7 @@ import (
 	spannerpb "google.golang.org/genproto/googleapis/spanner/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 
@@ -92,6 +93,14 @@ func run(ctx context.Context) error {
 		sql = o.Sql
 	}
 
+	var marshalFunc func(m proto.Message) ([]byte, error)
+	switch o.Format {
+	case "json":
+		marshalFunc = protojson.Marshal
+	case "yaml":
+		marshalFunc = protoyaml.Marshal
+	}
+
 	client, err := newClient(ctx, o.Project, o.Instance, o.Database, o.LogGrpc)
 	if err != nil {
 		return err
@@ -126,17 +135,9 @@ func run(ctx context.Context) error {
 	for _, name := range []string{o.Before, o.After} {
 		plan := plans[name]
 		var b []byte
-		switch o.Format {
-		case "json":
-			b, err = protojson.Marshal(plan)
-			if err != nil {
-				return err
-			}
-		case "yaml":
-			b, err = protoyaml.Marshal(plan)
-			if err != nil {
-				return err
-			}
+		b, err = marshalFunc(plan)
+		if err != nil {
+			return err
 		}
 		files = append(files, txtar.File{
 			Name: fmt.Sprintf("%s.plan.%s", name, o.Format),
