@@ -36,8 +36,8 @@ func main() {
 }
 
 type opts struct {
-	Before      string `long:"before" description:"Before query optimizer version" required:"true"`
-	After       string `long:"after" description:"After query optimizer version" required:"true"`
+	Before      string `long:"before" description:"Before query optimizer version" default:"default_version"`
+	After       string `long:"after" description:"After query optimizer version" default:"latest_version"`
 	Project     string `long:"project" short:"p" description:"(required) ID of the project." required:"true" env:"CLOUDSDK_CORE_PROJECT"`
 	Instance    string `long:"instance" short:"i" description:"(required) ID of the instance." required:"true" env:"CLOUDSDK_SPANNER_INSTANCE"`
 	Database    string `long:"database" short:"d" description:"(required) ID of the database." required:"true" env:"DATABASE_ID"`
