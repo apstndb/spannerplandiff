@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"cloud.google.com/go/spanner"
+	"github.com/apstndb/protoyaml"
 	"github.com/google/go-cmp/cmp"
 	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"github.com/jessevdk/go-flags"
@@ -19,7 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
-	"gopkg.in/yaml.v3"
 )
 
 var errDiff = errors.New("success but need to return exit code 1")
@@ -133,7 +133,7 @@ func run(ctx context.Context) error {
 				return err
 			}
 		case "yaml":
-			b, err = yaml.Marshal(plan)
+			b, err = protoyaml.Marshal(plan)
 			if err != nil {
 				return err
 			}
