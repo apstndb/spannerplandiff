@@ -170,12 +170,14 @@ func run(ctx context.Context) error {
 	}
 
 	if o.Exec != "" {
+		fmt.Fprintln(writer, sql)
 		if samePlans {
 			fmt.Fprintln(writer, "Plans are same")
 		} else {
 			fmt.Fprintln(writer, "Plans are not same")
 		}
 		for _, name := range []string{o.Before, o.After} {
+			fmt.Fprintln(writer)
 			fmt.Fprintf(writer, "optimizer_version=%s\n", name)
 			plan := plans[name]
 			var b []byte
