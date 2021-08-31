@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"os/exec"
 
 	"cloud.google.com/go/spanner"
 	"github.com/apstndb/protoyaml"
@@ -48,6 +50,7 @@ type opts struct {
 	Output      string `long:"output" short:"o" description:"Output file"`
 	LogGrpc     bool   `long:"log-grpc" description:"Show gRPC logs"`
 	ErrorOnDiff bool   `long:"error-on-diff" description:"Return exit code 1 when plans are differ"`
+	Exec string `long:"exec"`
 }
 
 func processFlags() (o opts, err error) {
@@ -74,6 +77,23 @@ func processFlags() (o opts, err error) {
 	}
 
 	return o, nil
+}
+
+func analyzeQuery(ctx context.Context, client *spanner.Client, sql string, version string) (*spannerpb.QueryPlan, error) {
+	// AnalyzeQuery doesn't have WithOptions variant so use QueryWithOptions
+	mode := spannerpb.ExecuteSqlRequest_PLAN
+	it := client.Single().QueryWithOptions(ctx, spanner.NewStatement(sql), spanner.QueryOptions{
+		Mode: &mode,
+		Options: &spannerpb.ExecuteSqlRequest_QueryOptions{
+			OptimizerVersion: version,
+		},
+	})
+	defer it.Stop()
+	// Consume for get plan
+	if err := it.Do(func(r *spanner.Row) error { return nil }); err != nil {
+		return nil, err
+	}
+	return it.QueryPlan, nil
 }
 
 func run(ctx context.Context) error {
@@ -109,26 +129,11 @@ func run(ctx context.Context) error {
 
 	plans := make(map[string]*spannerpb.QueryPlan)
 	for _, version := range []string{o.Before, o.After} {
-		err := func() error {
-			// AnalyzeQuery doesn't have WithOptions variant so use QueryWithOptions
-			mode := spannerpb.ExecuteSqlRequest_PLAN
-			it := client.Single().QueryWithOptions(ctx, spanner.NewStatement(sql), spanner.QueryOptions{
-				Mode: &mode,
-				Options: &spannerpb.ExecuteSqlRequest_QueryOptions{
-					OptimizerVersion: version,
-				},
-			})
-			defer it.Stop()
-			// Consume for get plan
-			if err := it.Do(func(r *spanner.Row) error { return nil }); err != nil {
-				return err
-			}
-			plans[version] = it.QueryPlan
-			return nil
-		}()
+		plan, err := analyzeQuery(ctx, client, sql, version)
 		if err != nil {
 			return err
 		}
+		plans[version] = plan
 	}
 
 	var files []txtar.File
@@ -151,6 +156,7 @@ func run(ctx context.Context) error {
 	if !samePlans {
 		files = append(files, txtar.File{Name: "diff_in_proto.txt", Data: []byte(cmp.Diff(beforePlan, afterPlan, protocmp.Transform()))})
 	}
+
 	var writer io.Writer
 	if o.Output != "" {
 		f, err := os.Create(o.Output)
@@ -163,10 +169,35 @@ func run(ctx context.Context) error {
 		writer = os.Stdout
 	}
 
-	writer.Write(txtar.Format(&txtar.Archive{
-		Comment: nil,
-		Files:   files,
-	}))
+	if o.Exec != "" {
+		if samePlans {
+			fmt.Fprintln(writer, "Plans are same")
+		} else {
+			fmt.Fprintln(writer, "Plans are not same")
+		}
+		for _, name := range []string{o.Before, o.After} {
+			fmt.Fprintf(writer, "optimizer_version=%s\n", name)
+			plan := plans[name]
+			var b []byte
+			b, err = marshalFunc(plan)
+			if err != nil {
+				return err
+			}
+			command := exec.Command("/bin/sh", "-c", o.Exec)
+			command.Stdin = bytes.NewReader(b)
+			out, err := command.CombinedOutput()
+			if err != nil {
+				return err
+			}
+
+			writer.Write(out)
+		}
+	} else {
+		writer.Write(txtar.Format(&txtar.Archive{
+			Comment: nil,
+			Files:   files,
+		}))
+	}
 	if o.ErrorOnDiff && !samePlans {
 		return errDiff
 	}
