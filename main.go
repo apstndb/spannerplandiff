@@ -50,7 +50,7 @@ type opts struct {
 	Output      string `long:"output" short:"o" description:"Output file"`
 	LogGrpc     bool   `long:"log-grpc" description:"Show gRPC logs"`
 	ErrorOnDiff bool   `long:"error-on-diff" description:"Return exit code 1 when plans are differ"`
-	Exec string `long:"exec"`
+	Renderer    string `long:"renderer"`
 }
 
 func processFlags() (o opts, err error) {
@@ -169,13 +169,15 @@ func run(ctx context.Context) error {
 		writer = os.Stdout
 	}
 
-	if o.Exec != "" {
-		fmt.Fprintln(writer, sql)
+	if o.Renderer != "" {
 		if samePlans {
 			fmt.Fprintln(writer, "Plans are same")
 		} else {
 			fmt.Fprintln(writer, "Plans are not same")
 		}
+		fmt.Fprintln(writer)
+		fmt.Fprintln(writer, "Query")
+		fmt.Fprintln(writer, sql)
 		for _, name := range []string{o.Before, o.After} {
 			fmt.Fprintln(writer)
 			fmt.Fprintf(writer, "optimizer_version=%s\n", name)
@@ -185,7 +187,7 @@ func run(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			command := exec.Command("/bin/sh", "-c", o.Exec)
+			command := exec.Command("/bin/sh", "-c", o.Renderer)
 			command.Stdin = bytes.NewReader(b)
 			out, err := command.CombinedOutput()
 			if err != nil {
