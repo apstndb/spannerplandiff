@@ -2,6 +2,15 @@
 
 Show Cloud Spanner query plans and diff between optimizer versions(EXPERIMENTAL).
 
+## Install
+
+```
+$ go install github.com/apstndb/spannerplandiff@latest
+
+# (optional) If you want to use spannerplandiff --renderer=rendertree
+$ go install github.com/apstndb/spannerplanviz/cmd/rendertree@latest
+```
+
 ## Usage
 
 ```
@@ -20,10 +29,50 @@ Application Options:
   -o, --output=            Output file
       --log-grpc           Show gRPC logs
       --error-on-diff      Return exit code 1 when plans are differ
+      --renderer=          Renderer command to render QueryPlan
 
 Help Options:
   -h, --help               Show this help message
 ```
+
+### With rendertree renderer
+
+```
+$ spannerplandiff --renderer=rendertree --before=1 --after=2 --sql='SELECT SongName FROM Songs WHERE REGEXP_CONTAINS(SongName, "^a.*")'
+Plans are not same
+
+Query
+SELECT SongName FROM Songs WHERE REGEXP_CONTAINS(SongName, "^a.*")
+
+optimizer_version=1
++----+---------------------------------------------------------------------------------+
+| ID | Operator                                                                        |
++----+---------------------------------------------------------------------------------+
+|  0 | Distributed Union                                                               |
+|  1 | +- Local Distributed Union                                                      |
+|  2 |    +- Serialize Result                                                          |
+| *3 |       +- Filter Scan                                                            |
+|  4 |          +- Index Scan (Full scan: true, Index: SongsBySingerAlbumSongNameDesc) |
++----+---------------------------------------------------------------------------------+
+Predicates(identified by ID):
+ 3: Residual Condition: REGEXP_CONTAINS($SongName, '^a.*')
+
+optimizer_version=2
++----+-------------------------------------------------+
+| ID | Operator                                        |
++----+-------------------------------------------------+
+| *0 | Distributed Union                               |
+|  1 | +- Local Distributed Union                      |
+|  2 |    +- Serialize Result                          |
+| *3 |       +- Filter Scan                            |
+|  4 |          +- Index Scan (Index: SongsBySongName) |
++----+-------------------------------------------------+
+Predicates(identified by ID):
+ 0: Split Range: STARTS_WITH($SongName, 'a')
+ 3: Seek Condition: STARTS_WITH($SongName, 'a')
+```
+
+### Without renderer
 
 ```
 $ spannerplandiff --error-on-diff --before=1 --after=2 --sql='SELECT SongName FROM Songs WHERE REGEXP_CONTAINS(SongName, "^a.*")' -o result.txtar
@@ -32,10 +81,10 @@ $ echo $?
 1
 $ cat result.txtar 
 -- 1.plan.yaml --
-plannodes:
+planNodes:
 (ellipsis...)
 -- 2.plan.yaml --
-plannodes:
+planNodes:
 (ellipsis...)
 -- diff_in_proto.txt --
   (*spanner.QueryPlan)(Inverse(protocmp.Transform, protocmp.Message{
