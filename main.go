@@ -50,7 +50,7 @@ type opts struct {
 	Output      string `long:"output" short:"o" description:"Output file"`
 	LogGrpc     bool   `long:"log-grpc" description:"Show gRPC logs"`
 	ErrorOnDiff bool   `long:"error-on-diff" description:"Return exit code 1 when plans are differ"`
-	Renderer    string `long:"renderer"`
+	Renderer    string `long:"renderer" description:"Renderer command to render QueryPlan"`
 }
 
 func processFlags() (o opts, err error) {
